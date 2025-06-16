@@ -1,0 +1,11 @@
+#!/bin/sh
+
+. /usr/share/debconf/confmodule
+
+# Configuración por defecto si no existe
+db_get ssh-geoip-alert/bot_token || true
+db_get ssh-geoip-alert/chat_id || true
+db_get ssh-geoip-alert/country || true
+db_get ssh-geoip-alert/ignored_networks || true
+
+exit 0

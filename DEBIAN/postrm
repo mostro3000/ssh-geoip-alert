@@ -1,0 +1,19 @@
+#!/bin/bash
+
+set -e
+
+if [ "$1" = "remove" ]; then
+    systemctl stop ssh-geoip-alert.service || true
+    systemctl disable ssh-geoip-alert.service || true
+    rm -f /etc/ssh-geoip-alert/config.env
+    rm -f /var/log/ssh_geoip_alert.log
+    rm -f /etc/systemd/system/ssh-geoip-alert.service
+    rm -f /etc/rsyslog.d/90-ssh-geoip-alert.conf
+    rm -f /usr/local/bin/alerta_ssh_geoip.sh
+    systemctl daemon-reexec
+    systemctl daemon-reload
+    systemctl reset-failed
+    systemctl restart rsyslog
+fi
+
+exit 0

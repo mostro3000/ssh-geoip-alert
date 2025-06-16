@@ -1,0 +1,5 @@
+Template: ssh-geoip-alert/ignored_networks
+Type: string
+Default: 10.0.0.0/8,192.168.0.0/16,172.16.0.0/12
+Description: Redes IP que se ignorarán para alertas SSH (separadas por coma)
+ Ingrese la lista de redes IP que no generarán alertas, separadas por comas.

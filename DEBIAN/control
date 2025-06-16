@@ -1,0 +1,8 @@
+Package: ssh-geoip-alert
+Version: 1.0.6
+Section: utils
+Priority: optional
+Architecture: all
+Maintainer: Mauricio <mt@unsl.edu.ar>
+Depends: curl, python3
+Description: SSH connection alert from outside the specified country via Telegram

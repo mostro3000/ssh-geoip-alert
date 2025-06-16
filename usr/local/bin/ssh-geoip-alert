@@ -1,0 +1,40 @@
+#!/bin/bash
+
+CONFIG_FILE="/etc/ssh-geoip-alert.conf"
+CACHE_FILE="/var/cache/ssh-geoip-alert.cache"
+
+[ ! -f "$CONFIG_FILE" ] && echo "Config not found" && exit 1
+source "$CONFIG_FILE"
+
+mkdir -p "$(dirname "$CACHE_FILE")"
+touch "$CACHE_FILE"
+
+IP=$(last -i | head -n1 | awk '{print $3}')
+LOGIN=$(last -i | head -n1 | awk '{print $1}')
+HOST=$(hostname)
+[[ -z "$IP" ]] && exit 0
+
+ip_in_cidr() {
+  python3 -c "import ipaddress; import sys; sys.exit(0) if ipaddress.ip_address('$1') in ipaddress.ip_network('$2') else sys.exit(1)"
+}
+
+for net in ${IGNORED_NETWORKS//,/ }; do
+  if ip_in_cidr "$IP" "$net"; then
+    exit 0
+  fi
+done
+
+# Consultar o reutilizar país desde la caché
+COUNTRY=$(grep -F "$IP|" "$CACHE_FILE" | cut -d'|' -f2)
+
+if [ -z "$COUNTRY" ]; then
+  COUNTRY=$(curl -s https://ipinfo.io/$IP/country)
+  [ -n "$COUNTRY" ] && echo "$IP|$COUNTRY" >> "$CACHE_FILE"
+fi
+
+if [ "$COUNTRY" != "$ALLOWED_COUNTRY" ]; then
+  /usr/bin/curl -q -X POST -H 'Content-Type: application/json' \
+        -d "{\"chat_id\": \"$CHAT_ID\", \"text\": \"🚨 $HOST: Acceso SSH $LOGIN desde IP $IP (País: $COUNTRY)\", \"disable_notification\": false}" \
+        https://api.telegram.org/bot$BOT_TOKEN/sendMessage >/dev/null 2>/dev/null
+fi
+

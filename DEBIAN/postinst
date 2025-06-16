@@ -1,0 +1,58 @@
+#!/bin/bash
+echo "Configurando ssh-geoip-alert..."
+
+read -p "Ingrese su Telegram BOT_TOKEN: " BOT_TOKEN
+read -p "Ingrese su Telegram CHAT_ID: " CHAT_ID
+read -p "Ingrese el país permitido (ej: AR): " COUNTRY
+read -p "Redes a ignorar (separadas por coma, ej: 192.168.0.0/16,10.0.0.0/8,172.16.0.0/12,127.0.0.1/32): " NETWORKS
+
+CONFIG_FILE="/etc/ssh-geoip-alert.conf"
+echo "BOT_TOKEN=$BOT_TOKEN" > "$CONFIG_FILE"
+validate_token() {
+    [[ "$1" =~ ^[0-9]{9,11}:[A-Za-z0-9_-]{30,}$ ]]
+}
+if ! validate_token "$BOT_TOKEN"; then
+    echo "Error: BOT_TOKEN inválido. Verificá el formato. Abortando."
+    exit 1
+fi
+echo "CHAT_ID=$CHAT_ID" >> "$CONFIG_FILE"
+validate_chat_id() {
+    [[ "$1" =~ ^-?[0-9]{6,20}$ ]]
+}
+if ! validate_chat_id "$CHAT_ID"; then
+    echo "Error: CHAT_ID inválido. Debe ser un número. Abortando."
+    exit 1
+fi
+echo "ALLOWED_COUNTRY=$COUNTRY" >> "$CONFIG_FILE"
+echo "IGNORED_NETWORKS=$NETWORKS" >> "$CONFIG_FILE"
+validate_cidr() {
+    local cidr
+    IFS=',' read -ra ADDR <<< "$1"
+    for cidr in "${ADDR[@]}"; do
+        if ! echo "$cidr" | grep -Eq '^([0-9]{1,3}\.){3}[0-9]{1,3}(/\d{1,2})?$'; then
+            echo "CIDR inválido detectado: $cidr"
+            return 1
+        fi
+    done
+    return 0
+}
+if ! validate_cidr "$IGNORED_NETWORKS"; then
+    echo "Error: Las redes ignoradas tienen un formato incorrecto. Abortando instalación."
+    exit 1
+fi
+
+chmod 600 "$CONFIG_FILE"
+
+# Crear archivo de log si no existe
+if [ ! -f /var/log/ssh_geoip_alert.log ]; then
+    touch /var/log/ssh_geoip_alert.log
+    chmod 600 /var/log/ssh_geoip_alert.log
+    chown root:root /var/log/ssh_geoip_alert.log
+fi
+
+# Instala un cron para revisar cada 1 minuto el último login SSH
+CRON_FILE="/etc/cron.d/ssh-geoip-alert"
+echo "* * * * * root /usr/local/bin/ssh-geoip-alert" > "$CRON_FILE"
+chmod 644 "$CRON_FILE"
+
+echo "Instalación completada."
